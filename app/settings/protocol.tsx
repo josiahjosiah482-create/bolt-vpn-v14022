@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BackHeader } from '@/components/back-header';
 import { C } from '@/constants/C';
+import { trpc } from '@/lib/trpc';
 
 const PROTOCOLS = [
-  { id: 'wireguard', name: 'WireGuard',  badge: 'FASTEST',  desc: 'Modern, ultra-fast protocol. Best for most users.', speed: 5, security: 4 },
-  { id: 'openvpn',  name: 'OpenVPN',    badge: 'STABLE',   desc: 'Battle-tested protocol. Best compatibility.',         speed: 3, security: 5 },
-  { id: 'ikev2',    name: 'IKEv2',      badge: 'MOBILE',   desc: 'Excellent for mobile networks. Fast reconnection.',   speed: 4, security: 4 },
-  { id: 'auto',     name: 'Auto',       badge: 'SMART',    desc: 'Automatically selects the best protocol.',            speed: 5, security: 5 },
+  { id: 'WireGuard', name: 'WireGuard',  badge: 'FASTEST',  desc: 'Modern, ultra-fast protocol. Best for most users.', speed: 5, security: 4 },
+  { id: 'OpenVPN',   name: 'OpenVPN',    badge: 'STABLE',   desc: 'Battle-tested protocol. Best compatibility.',         speed: 3, security: 5 },
+  { id: 'IKEv2',     name: 'IKEv2',      badge: 'MOBILE',   desc: 'Excellent for mobile networks. Fast reconnection.',   speed: 4, security: 4 },
+  { id: 'Auto',      name: 'Auto',       badge: 'SMART',    desc: 'Automatically selects the best protocol.',            speed: 5, security: 5 },
 ];
 
 function Dots({ count, filled }: { count: number; filled: number }) {
@@ -23,7 +23,14 @@ function Dots({ count, filled }: { count: number; filled: number }) {
 }
 
 export default function ProtocolScreen() {
-  const [selected, setSelected] = useState('wireguard');
+  const { data: settings, isLoading } = trpc.settings.get.useQuery();
+  const updateSettings = trpc.settings.update.useMutation();
+
+  const selected = settings?.selectedProtocol ?? 'WireGuard';
+
+  const handleSelect = (id: string) => {
+    updateSettings.mutate({ selectedProtocol: id });
+  };
 
   return (
     <View style={styles.container}>
@@ -33,37 +40,43 @@ export default function ProtocolScreen() {
           <Text style={styles.desc}>
             Choose how your traffic is encrypted and tunneled. WireGuard is recommended for most users.
           </Text>
-          {PROTOCOLS.map((p) => {
-            const isActive = selected === p.id;
-            return (
-              <Pressable
-                key={p.id}
-                style={[styles.card, isActive && styles.cardActive]}
-                onPress={() => setSelected(p.id)}
-              >
-                <View style={styles.cardTop}>
-                  <View style={styles.nameRow}>
-                    <Text style={styles.protoName}>{p.name}</Text>
-                    <View style={[styles.badge, isActive && styles.badgeActive]}>
-                      <Text style={[styles.badgeText, isActive && styles.badgeTextActive]}>{p.badge}</Text>
+          {isLoading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={C.teal} />
+            </View>
+          ) : (
+            PROTOCOLS.map((p) => {
+              const isActive = selected === p.id;
+              return (
+                <Pressable
+                  key={p.id}
+                  style={[styles.card, isActive && styles.cardActive]}
+                  onPress={() => handleSelect(p.id)}
+                >
+                  <View style={styles.cardTop}>
+                    <View style={styles.nameRow}>
+                      <Text style={styles.protoName}>{p.name}</Text>
+                      <View style={[styles.badge, isActive && styles.badgeActive]}>
+                        <Text style={[styles.badgeText, isActive && styles.badgeTextActive]}>{p.badge}</Text>
+                      </View>
+                    </View>
+                    {isActive && <MaterialIcons name="check-circle" size={22} color={C.teal} />}
+                  </View>
+                  <Text style={styles.protoDesc}>{p.desc}</Text>
+                  <View style={styles.statsRow}>
+                    <View style={styles.stat}>
+                      <Text style={styles.statLabel}>Speed</Text>
+                      <Dots count={5} filled={p.speed} />
+                    </View>
+                    <View style={styles.stat}>
+                      <Text style={styles.statLabel}>Security</Text>
+                      <Dots count={5} filled={p.security} />
                     </View>
                   </View>
-                  {isActive && <MaterialIcons name="check-circle" size={22} color={C.teal} />}
-                </View>
-                <Text style={styles.protoDesc}>{p.desc}</Text>
-                <View style={styles.statsRow}>
-                  <View style={styles.stat}>
-                    <Text style={styles.statLabel}>Speed</Text>
-                    <Dots count={5} filled={p.speed} />
-                  </View>
-                  <View style={styles.stat}>
-                    <Text style={styles.statLabel}>Security</Text>
-                    <Dots count={5} filled={p.security} />
-                  </View>
-                </View>
-              </Pressable>
-            );
-          })}
+                </Pressable>
+              );
+            })
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -71,11 +84,11 @@ export default function ProtocolScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.light },
-  safe:      { flex: 1 },
-  scroll:    { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
-  desc:      { fontFamily: 'Oxanium_400Regular', fontSize: 13, color: C.txtLight2, lineHeight: 18, marginBottom: 4 },
-
+  container:   { flex: 1, backgroundColor: C.light },
+  safe:        { flex: 1 },
+  scroll:      { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
+  desc:        { fontFamily: 'Oxanium_400Regular', fontSize: 13, color: C.txtLight2, lineHeight: 18, marginBottom: 4 },
+  loadingWrap: { alignItems: 'center', paddingTop: 40 },
   card: {
     backgroundColor: C.light2,
     borderRadius: 16,
@@ -84,16 +97,11 @@ const styles = StyleSheet.create({
     borderColor: C.borderLight,
     gap: 8,
   },
-  cardActive:  { borderColor: C.teal, backgroundColor: C.tealBg2 },
-  cardTop:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  nameRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  protoName:   { fontFamily: 'Oxanium_700Bold', fontSize: 16, color: C.txtLight },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    backgroundColor: C.grey,
-  },
+  cardActive:      { borderColor: C.teal, backgroundColor: C.tealBg2 },
+  cardTop:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  nameRow:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  protoName:       { fontFamily: 'Oxanium_700Bold', fontSize: 16, color: C.txtLight },
+  badge:           { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: C.grey },
   badgeActive:     { backgroundColor: C.tealBg, borderWidth: 1, borderColor: C.tealBorder },
   badgeText:       { fontFamily: 'Oxanium_700Bold', fontSize: 9, color: C.txtLight2, letterSpacing: 0.5 },
   badgeTextActive: { color: C.teal },

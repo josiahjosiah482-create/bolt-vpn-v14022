@@ -15,6 +15,13 @@
       "when": 1773588801127,
       "tag": "0001_eager_rumiko_fujikawa",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1773597121654,
+      "tag": "0002_nebulous_turbo",
+      "breakpoints": true
     }
   ]
 }

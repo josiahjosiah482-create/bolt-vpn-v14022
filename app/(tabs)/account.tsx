@@ -26,6 +26,7 @@ const PLAN_LABELS: Record<string, string> = {
 export default function AccountScreen() {
   const router = useRouter();
   const { data: userData } = trpc.auth.me.useQuery(undefined, { retry: false });
+  const { data: history = [] } = trpc.connections.history.useQuery();
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => router.replace('/(auth)/login' as any),
   });
@@ -83,12 +84,23 @@ export default function AccountScreen() {
             )}
           </View>
 
-          {/* Stats row */}
+          {/* Stats row — real data from connection history */}
           <View style={styles.statsRow}>
             {[
-              { label: 'Data Used',   value: '3.2 GB',  icon: '📊' },
-              { label: 'Sessions',    value: '47',       icon: '🔗' },
-              { label: 'Days Active', value: '12',       icon: '📅' },
+              {
+                label: 'Data Used',
+                value: (() => {
+                  const mb = (history as any[]).reduce((s: number, h: any) => s + (h.dataDownMB ?? 0) + (h.dataUpMB ?? 0), 0);
+                  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
+                })(),
+                icon: '📊',
+              },
+              { label: 'Sessions',    value: String((history as any[]).length),  icon: '🔗' },
+              {
+                label: 'Days Active',
+                value: String(new Set((history as any[]).map((h: any) => new Date(h.connectedAt).toDateString())).size),
+                icon: '📅',
+              },
             ].map((stat) => (
               <View key={stat.label} style={styles.statCard}>
                 <Text style={styles.statIcon}>{stat.icon}</Text>
@@ -101,10 +113,12 @@ export default function AccountScreen() {
           {/* Actions */}
           <View style={styles.actionsCard}>
             {[
-              { icon: '🎁', label: 'Refer a Friend',     sub: 'Get 30 days free',      route: '/refer'          },
-              { icon: '📋', label: 'No-Log Policy',      sub: 'Our privacy commitment', route: '/no-log-policy'  },
-              { icon: '🛡️', label: 'Threat Protection',  sub: 'Malware & ad blocking',  route: '/threat-protection' },
-              { icon: '❓', label: 'Help & Support',     sub: 'FAQ and contact',        route: '/settings/help'  },
+              { icon: '🎁', label: 'Refer a Friend',     sub: 'Get 30 days free',           route: '/refer'           },
+              { icon: '📋', label: 'No-Log Policy',      sub: 'Our privacy commitment',      route: '/no-log-policy'   },
+              { icon: '🛡️', label: 'Threat Protection',  sub: 'Malware & ad blocking',      route: '/threat-protection' },
+              { icon: '🔒', label: 'Privacy Policy',    sub: 'How we protect your data',   route: '/privacy-policy'  },
+              { icon: '📄', label: 'Terms of Service',  sub: 'Usage terms and conditions', route: '/terms'           },
+              { icon: '❓', label: 'Help & Support',     sub: 'FAQ and contact',            route: '/settings/help'   },
             ].map((item, idx, arr) => (
               <View key={item.label}>
                 <Pressable
@@ -130,6 +144,14 @@ export default function AccountScreen() {
           >
             <MaterialIcons name="logout" size={18} color={C.red} />
             <Text style={styles.signOutText}>Sign Out</Text>
+          </Pressable>
+
+          {/* Delete account */}
+          <Pressable
+            style={styles.deleteAccountBtn}
+            onPress={() => router.push('/delete-account' as any)}
+          >
+            <Text style={styles.deleteAccountText}>Delete Account</Text>
           </Pressable>
 
         </ScrollView>
@@ -245,4 +267,16 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239,68,68,0.25)',
   },
   signOutText: { fontFamily: 'Oxanium_700Bold', fontSize: 15, color: C.red },
+
+  deleteAccountBtn: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteAccountText: {
+    fontFamily: 'Oxanium_400Regular',
+    fontSize: 13,
+    color: C.txtLight3,
+    textDecorationLine: 'underline',
+  },
 });

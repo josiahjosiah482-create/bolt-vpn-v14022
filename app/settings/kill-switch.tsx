@@ -1,12 +1,21 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackHeader } from '@/components/back-header';
 import { C } from '@/constants/C';
+import { trpc } from '@/lib/trpc';
 
 export default function KillSwitchScreen() {
-  const [enabled, setEnabled] = useState(false);
   const [mode, setMode] = useState<'strict' | 'soft'>('strict');
+
+  const { data: settings, isLoading } = trpc.settings.get.useQuery();
+  const updateSettings = trpc.settings.update.useMutation();
+
+  const isEnabled = settings?.killSwitchEnabled ?? false;
+
+  const handleToggle = (val: boolean) => {
+    updateSettings.mutate({ killSwitchEnabled: val });
+  };
 
   return (
     <View style={styles.container}>
@@ -19,16 +28,21 @@ export default function KillSwitchScreen() {
                 <Text style={styles.mainLabel}>Kill Switch</Text>
                 <Text style={styles.mainSub}>Block all internet traffic if VPN disconnects</Text>
               </View>
-              <Switch
-                value={enabled}
-                onValueChange={setEnabled}
-                trackColor={{ false: C.borderLight, true: C.teal }}
-                thumbColor="#fff"
-              />
+              {isLoading ? (
+                <ActivityIndicator size="small" color={C.teal} />
+              ) : (
+                <Switch
+                  value={isEnabled}
+                  onValueChange={handleToggle}
+                  trackColor={{ false: C.borderLight, true: C.teal }}
+                  thumbColor="#fff"
+                  disabled={updateSettings.isPending}
+                />
+              )}
             </View>
           </View>
 
-          {enabled && (
+          {isEnabled && (
             <View style={styles.modeCard}>
               <Text style={styles.sectionTitle}>MODE</Text>
               {[

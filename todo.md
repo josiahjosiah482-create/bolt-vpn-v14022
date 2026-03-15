@@ -56,3 +56,46 @@
 - [x] All navigation routes work
 - [x] All 6 new screens accessible from Settings MONITORING section
 - [x] Home quick actions navigate correctly
+
+## Play Store Ready — Real DB + Legal Screens
+
+### Part 1 — DB Schema
+- [x] Add deviceSessions table to schema
+- [x] Add userSettings table to schema
+- [x] Add vpnServers table to schema
+- [x] Add connectionLogs table to schema
+- [x] Add referrals table to schema
+- [x] Run pnpm db:push migration
+
+### Part 2 — Server / tRPC
+- [x] Add seedServersIfEmpty() to server/db.ts
+- [x] Add settings.get and settings.update procedures to routers.ts
+- [x] Add servers.list procedure to routers.ts
+- [x] Add connections.log and connections.history procedures to routers.ts
+- [x] Add auth.deleteAccount procedure to routers.ts
+
+### Part 3 — Wire Real Data to Screens
+- [x] servers.tsx loads from DB (trpc.servers.list)
+- [x] kill-switch.tsx toggle persists to DB
+- [x] threat-protection.tsx toggles persist to DB
+- [x] settings/protocol.tsx selection persists to DB
+- [x] settings/split-tunnel.tsx toggle persists to DB
+- [x] bandwidth-share.tsx toggle persists to DB
+- [x] Home screen logs connection on disconnect
+- [x] settings/stats.tsx shows real connection history
+
+### Part 4 — Real User Data
+- [x] refer.tsx shows user-based referral code (BOLT-{userId})
+- [x] account.tsx stats from real connection history
+- [x] Home avatar initial from real user data
+
+### Part 5 — Google Play Legal
+- [x] app/privacy-policy.tsx created
+- [x] app/terms.tsx created
+- [x] Account deletion button + confirmation in account.tsx
+- [x] Privacy Policy + Terms linked from Settings and Account screens
+- [x] Delete Account screen with type-to-confirm flow
+
+### Part 6 — Polish & Play Store Config
+- [x] New screens registered in _layout.tsx (privacy-policy, terms, delete-account)
+- [x] TypeScript check passes (zero errors)

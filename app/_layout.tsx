@@ -122,6 +122,10 @@ export default function RootLayout() {
             <Stack.Screen name="bandwidth-share" options={{ presentation: 'card', animation: 'slide_from_right' }} />
             <Stack.Screen name="privacy-audit"   options={{ presentation: 'card', animation: 'slide_from_right' }} />
             <Stack.Screen name="devices"         options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            {/* Legal & account management screens */}
+            <Stack.Screen name="privacy-policy"  options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="terms"           options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="delete-account"  options={{ presentation: 'card', animation: 'slide_from_right' }} />
             <Stack.Screen name="oauth/callback" />
           </Stack>
           <StatusBar style="light" />

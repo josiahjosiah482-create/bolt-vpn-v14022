@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { trpc } from '@/lib/trpc';
 import {
   Animated,
   Platform,
@@ -30,11 +31,14 @@ const MOCK_HISTORY: EarningEntry[] = [
 ];
 
 export default function BandwidthShareScreen() {
-  const [enabled, setEnabled]   = useState(false);
   const [limit, setLimit]       = useState(5); // GB/day
   const [liveKbps, setLiveKbps] = useState(0);
   const totalEarned = MOCK_HISTORY.reduce((sum, e) => sum + e.amount, 0);
   const totalShared = MOCK_HISTORY.reduce((sum, e) => sum + e.bandwidth, 0);
+
+  const { data: settings } = trpc.settings.get.useQuery();
+  const updateSettings = trpc.settings.update.useMutation();
+  const enabled = settings?.bandwidthShareEnabled ?? false;
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const liveRef   = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -61,7 +65,7 @@ export default function BandwidthShareScreen() {
 
   const toggle = () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setEnabled(!enabled);
+    updateSettings.mutate({ bandwidthShareEnabled: !enabled });
   };
 
   const adjustLimit = (delta: number) => {

@@ -4,11 +4,13 @@ import * as Haptics from 'expo-haptics';
 import { BackHeader } from '@/components/back-header';
 import { C } from '@/constants/C';
 import { useState } from 'react';
-
-const REFERRAL_CODE = 'BOLT-X7K2M';
+import { trpc } from '@/lib/trpc';
 
 export default function ReferScreen() {
   const [copied, setCopied] = useState(false);
+  const { data: userData } = trpc.auth.me.useQuery(undefined, { retry: false });
+  const user = userData as any;
+  const REFERRAL_CODE = user?.id ? `BOLT-${String(user.id).padStart(6, '0')}` : 'BOLT-000000';
 
   const copyCode = () => {
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

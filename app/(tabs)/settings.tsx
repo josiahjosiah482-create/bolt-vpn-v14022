@@ -81,9 +81,12 @@ export default function SettingsScreen() {
     {
       title: 'SUPPORT',
       data: [
-        { id: 'nolog',    icon: '📋', label: 'No-Log Policy',   sub: 'Our verified privacy commitment', route: '/no-log-policy' },
-        { id: 'p2p',      icon: '🔗', label: 'P2P / Torrents',  sub: 'Optimized P2P servers',           route: '/p2p'           },
-        { id: 'help',     icon: '❓', label: 'Help & Support',  sub: 'FAQ and contact',                  route: '/settings/help' },
+        { id: 'nolog',    icon: '📋', label: 'No-Log Policy',   sub: 'Our verified privacy commitment', route: '/no-log-policy'   },
+        { id: 'p2p',      icon: '🔗', label: 'P2P / Torrents',  sub: 'Optimized P2P servers',           route: '/p2p'             },
+        { id: 'privacy',  icon: '🔒', label: 'Privacy Policy',  sub: 'How we protect your data',        route: '/privacy-policy'  },
+        { id: 'terms',    icon: '📄', label: 'Terms of Service', sub: 'Usage terms and conditions',     route: '/terms'           },
+        { id: 'help',     icon: '❓', label: 'Help & Support',  sub: 'FAQ and contact',                  route: '/settings/help'   },
+        { id: 'delete',   icon: '🗑️', label: 'Delete Account',  sub: 'Permanently remove your account', route: '/delete-account', danger: true },
         { id: 'logout',   icon: '🚪', label: 'Sign Out',        danger: true },
       ],
     },
@@ -91,7 +94,13 @@ export default function SettingsScreen() {
 
   const renderRow = ({ item }: { item: SettingRow }) => {
     const handlePress = () => {
+      if (item.danger && item.route) {
+        // Danger rows with a route navigate (e.g. delete-account)
+        router.push(item.route as Href);
+        return;
+      }
       if (item.danger) {
+        // Danger rows without a route = sign out
         router.replace('/(auth)/login' as any);
         return;
       }

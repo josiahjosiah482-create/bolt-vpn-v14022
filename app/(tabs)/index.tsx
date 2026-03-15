@@ -54,6 +54,9 @@ export default function HomeScreen() {
   }, []);
 
   const { data: userData } = trpc.auth.me.useQuery(undefined, { retry: false });
+  const { data: dbSettings } = trpc.settings.get.useQuery();
+  const updateSettings = trpc.settings.update.useMutation();
+  const logConnection = trpc.connections.log.useMutation();
   const user = userData as any;
   const userInitial = user?.name?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase() ?? 'B';
 
@@ -65,7 +68,15 @@ export default function HomeScreen() {
   const [liveDownload, setLiveDownload]     = useState(0);
   const [liveUpload, setLiveUpload]         = useState(0);
   const [livePing, setLivePing]             = useState(0);
-  const [protocol, setProtocol]             = useState<Protocol>('WireGuard');
+  const [totalDownBytes, setTotalDownBytes] = useState(0);
+  const [totalUpBytes, setTotalUpBytes]     = useState(0);
+  // Use protocol from DB settings if available, else local state
+  const [localProtocol, setLocalProtocol]   = useState<Protocol>('WireGuard');
+  const protocol = (dbSettings?.selectedProtocol as Protocol) ?? localProtocol;
+  const setProtocol = (p: Protocol) => {
+    setLocalProtocol(p);
+    updateSettings.mutate({ selectedProtocol: p });
+  };
 
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingRef   = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -97,9 +108,14 @@ export default function HomeScreen() {
       setLiveDownload(Math.round(180 + Math.random() * 120));
       setLiveUpload(Math.round(60 + Math.random() * 60));
       pingRef.current = setInterval(() => {
+        const dl = Math.round(180 + (Math.random() - 0.5) * 40);
+        const ul = Math.round(70 + (Math.random() - 0.5) * 20);
         setLivePing(Math.round(base + (Math.random() - 0.5) * 12));
-        setLiveDownload(Math.round(180 + (Math.random() - 0.5) * 40));
-        setLiveUpload(Math.round(70 + (Math.random() - 0.5) * 20));
+        setLiveDownload(dl);
+        setLiveUpload(ul);
+        // Accumulate bytes for logging
+        setTotalDownBytes((prev) => prev + dl * 1024 * 3); // approx bytes per 3s
+        setTotalUpBytes((prev) => prev + ul * 1024 * 3);
       }, 3000);
       return () => { if (pingRef.current) clearInterval(pingRef.current); };
     } else {
@@ -121,6 +137,17 @@ export default function HomeScreen() {
         setIsConnected(false);
         setCurrentIp(null);
         if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        // Log connection to DB
+        if (elapsedSeconds > 0 && user) {
+          logConnection.mutate({
+            serverId: selectedServer.id,
+            durationSeconds: elapsedSeconds,
+            dataUpMB: Math.round(totalUpBytes / 1024 / 1024),
+            dataDownMB: Math.round(totalDownBytes / 1024 / 1024),
+          });
+        }
+        setTotalDownBytes(0);
+        setTotalUpBytes(0);
       } else {
         setIsConnected(true);
         const ip = `${Math.floor(Math.random() * 200) + 10}.${Math.floor(Math.random() * 254)}.${Math.floor(Math.random() * 254)}.${Math.floor(Math.random() * 254)}`;

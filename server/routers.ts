@@ -1,13 +1,16 @@
 import { TRPCError } from "@trpc/server";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { connectionLogs, userSettings, users, vpnServers } from "../drizzle/schema";
 import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions, createSessionToken } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 
 export const appRouter = router({
   system: systemRouter,
+
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
 
@@ -82,6 +85,103 @@ export const appRouter = router({
           subscriptionTier: user.subscriptionTier ?? 'free',
         };
       }),
+
+    deleteAccount: protectedProcedure.mutation(async ({ ctx }) => {
+      const database = await db.getDb();
+      if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+      // Delete in order: settings, connection logs, then user
+      await database.delete(userSettings).where(eq(userSettings.userId, ctx.user.id));
+      await database.delete(connectionLogs).where(eq(connectionLogs.userId, ctx.user.id));
+      await database.delete(users).where(eq(users.id, ctx.user.id));
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return { success: true };
+    }),
+  }),
+
+  settings: router({
+    get: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) return null;
+      const database = await db.getDb();
+      if (!database) return null;
+      const result = await database.select().from(userSettings)
+        .where(eq(userSettings.userId, ctx.user.id)).limit(1);
+      if (result.length > 0) return result[0];
+      // Create default settings for new user
+      await database.insert(userSettings).values({ userId: ctx.user.id });
+      const created = await database.select().from(userSettings)
+        .where(eq(userSettings.userId, ctx.user.id)).limit(1);
+      return created[0] ?? null;
+    }),
+
+    update: protectedProcedure
+      .input(z.object({
+        killSwitchEnabled:     z.boolean().optional(),
+        autoConnect:           z.boolean().optional(),
+        selectedProtocol:      z.string().optional(),
+        splitTunnelEnabled:    z.boolean().optional(),
+        threatProtEnabled:     z.boolean().optional(),
+        adBlockEnabled:        z.boolean().optional(),
+        bandwidthShareEnabled: z.boolean().optional(),
+        selectedServerId:      z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const database = await db.getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        // Ensure settings row exists
+        const existing = await database.select().from(userSettings)
+          .where(eq(userSettings.userId, ctx.user.id)).limit(1);
+        if (existing.length === 0) {
+          await database.insert(userSettings).values({ userId: ctx.user.id, ...input });
+        } else {
+          await database.update(userSettings)
+            .set({ ...input, updatedAt: new Date() })
+            .where(eq(userSettings.userId, ctx.user.id));
+        }
+        return { success: true };
+      }),
+  }),
+
+  servers: router({
+    list: publicProcedure.query(async () => {
+      const database = await db.getDb();
+      if (!database) return [];
+      // Seed on first call
+      await db.seedServersIfEmpty();
+      return database.select().from(vpnServers).where(eq(vpnServers.isActive, true));
+    }),
+  }),
+
+  connections: router({
+    log: protectedProcedure
+      .input(z.object({
+        serverId:        z.number(),
+        durationSeconds: z.number(),
+        dataUpMB:        z.number(),
+        dataDownMB:      z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const database = await db.getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        await database.insert(connectionLogs).values({
+          userId:          ctx.user.id,
+          serverId:        input.serverId,
+          durationSeconds: input.durationSeconds,
+          dataUpMB:        input.dataUpMB,
+          dataDownMB:      input.dataDownMB,
+          disconnectedAt:  new Date(),
+        });
+        return { success: true };
+      }),
+
+    history: protectedProcedure.query(async ({ ctx }) => {
+      const database = await db.getDb();
+      if (!database) return [];
+      return database.select().from(connectionLogs)
+        .where(eq(connectionLogs.userId, ctx.user.id))
+        .orderBy(desc(connectionLogs.connectedAt))
+        .limit(20);
+    }),
   }),
 });
 

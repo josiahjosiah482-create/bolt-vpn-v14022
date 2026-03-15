@@ -1,29 +1,10 @@
 import { useState, useMemo } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { C } from '@/constants/C';
+import { trpc } from '@/lib/trpc';
 
-const ALL_SERVERS = [
-  { id: 1,  flag: '🇺🇸', country: 'United States',  city: 'New York',     ping: 12,  premium: false, region: 'AMERICAS' },
-  { id: 2,  flag: '🇺🇸', country: 'United States',  city: 'Los Angeles',  ping: 18,  premium: false, region: 'AMERICAS' },
-  { id: 3,  flag: '🇬🇧', country: 'United Kingdom', city: 'London',       ping: 32,  premium: false, region: 'EUROPE'   },
-  { id: 4,  flag: '🇩🇪', country: 'Germany',        city: 'Frankfurt',    ping: 45,  premium: false, region: 'EUROPE'   },
-  { id: 5,  flag: '🇫🇷', country: 'France',         city: 'Paris',        ping: 48,  premium: false, region: 'EUROPE'   },
-  { id: 6,  flag: '🇳🇱', country: 'Netherlands',    city: 'Amsterdam',    ping: 38,  premium: false, region: 'EUROPE'   },
-  { id: 7,  flag: '🇸🇪', country: 'Sweden',         city: 'Stockholm',    ping: 55,  premium: false, region: 'EUROPE'   },
-  { id: 8,  flag: '🇨🇭', country: 'Switzerland',    city: 'Zurich',       ping: 48,  premium: true,  region: 'EUROPE'   },
-  { id: 9,  flag: '🇯🇵', country: 'Japan',          city: 'Tokyo',        ping: 88,  premium: true,  region: 'ASIA'     },
-  { id: 10, flag: '🇸🇬', country: 'Singapore',      city: 'Singapore',    ping: 72,  premium: true,  region: 'ASIA'     },
-  { id: 11, flag: '🇦🇺', country: 'Australia',      city: 'Sydney',       ping: 110, premium: true,  region: 'ASIA'     },
-  { id: 12, flag: '🇰🇷', country: 'South Korea',    city: 'Seoul',        ping: 95,  premium: true,  region: 'ASIA'     },
-  { id: 13, flag: '🇮🇳', country: 'India',          city: 'Mumbai',       ping: 130, premium: true,  region: 'ASIA'     },
-  { id: 14, flag: '🇨🇦', country: 'Canada',         city: 'Toronto',      ping: 22,  premium: false, region: 'AMERICAS' },
-  { id: 15, flag: '🇧🇷', country: 'Brazil',         city: 'São Paulo',    ping: 95,  premium: true,  region: 'AMERICAS' },
-  { id: 16, flag: '🇲🇽', country: 'Mexico',         city: 'Mexico City',  ping: 65,  premium: false, region: 'AMERICAS' },
-];
-
-const POPULAR_IDS = [1, 3, 6, 9, 10, 14];
 const TABS = ['ALL', 'POPULAR', 'EUROPE', 'ASIA', 'AMERICAS'] as const;
 type Tab = typeof TABS[number];
 
@@ -36,19 +17,28 @@ function getPingColor(ping: number) {
 export default function ServersScreen() {
   const [search, setSearch]           = useState('');
   const [activeTab, setActiveTab]     = useState<Tab>('ALL');
-  const [connectedId, setConnectedId] = useState<number | null>(1);
+  const [connectedId, setConnectedId] = useState<number | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
 
+  const { data: servers = [], isLoading } = trpc.servers.list.useQuery();
+
   const filtered = useMemo(() => {
-    let list = ALL_SERVERS;
-    if (activeTab === 'POPULAR')  list = list.filter((s) => POPULAR_IDS.includes(s.id));
-    else if (activeTab !== 'ALL') list = list.filter((s) => s.region === activeTab);
+    let list = servers;
+    if (activeTab === 'POPULAR') {
+      list = list.filter((s) => s.category === 'popular');
+    } else if (activeTab === 'EUROPE') {
+      list = list.filter((s) => s.category === 'europe');
+    } else if (activeTab === 'ASIA') {
+      list = list.filter((s) => s.category === 'asia');
+    } else if (activeTab === 'AMERICAS') {
+      list = list.filter((s) => s.category === 'americas');
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter((s) => s.country.toLowerCase().includes(q) || s.city.toLowerCase().includes(q));
+      list = list.filter((s) => s.countryName.toLowerCase().includes(q) || s.city.toLowerCase().includes(q));
     }
     return list;
-  }, [search, activeTab]);
+  }, [search, activeTab, servers]);
 
   return (
     <View style={styles.container}>
@@ -56,7 +46,7 @@ export default function ServersScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Server Location</Text>
-          <Text style={styles.subtitle}>{ALL_SERVERS.length} servers · 12 countries</Text>
+          <Text style={styles.subtitle}>{servers.length} servers · {new Set(servers.map((s) => s.countryCode)).size} countries</Text>
         </View>
 
         {/* Search */}
@@ -98,50 +88,62 @@ export default function ServersScreen() {
           ))}
         </ScrollView>
 
-        {/* Server list */}
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <MaterialIcons name="search-off" size={40} color={C.txtLight3} />
-              <Text style={styles.emptyText}>No servers found</Text>
-            </View>
-          }
-          renderItem={({ item }) => {
-            const isConnected = connectedId === item.id;
-            const pingColor   = getPingColor(item.ping);
-            return (
-              <Pressable
-                style={[styles.serverCard, isConnected && styles.serverCardActive]}
-                onPress={() => setConnectedId(isConnected ? null : item.id)}
-              >
-                <Text style={styles.flag}>{item.flag}</Text>
-                <View style={styles.serverInfo}>
-                  <View style={styles.nameRow}>
-                    <Text style={styles.countryName}>{item.country}</Text>
-                    {item.premium && (
-                      <View style={styles.proBadge}>
-                        <Text style={styles.proText}>PRO</Text>
-                      </View>
-                    )}
+        {/* Loading state */}
+        {isLoading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={C.teal} />
+            <Text style={styles.loadingText}>Loading servers...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <MaterialIcons name="search-off" size={40} color={C.txtLight3} />
+                <Text style={styles.emptyText}>No servers found</Text>
+              </View>
+            }
+            renderItem={({ item }) => {
+              const isConnected = connectedId === item.id;
+              const pingColor   = getPingColor(item.pingMs);
+              return (
+                <Pressable
+                  style={[styles.serverCard, isConnected && styles.serverCardActive]}
+                  onPress={() => setConnectedId(isConnected ? null : item.id)}
+                >
+                  <Text style={styles.flag}>{item.flag}</Text>
+                  <View style={styles.serverInfo}>
+                    <View style={styles.nameRow}>
+                      <Text style={styles.countryName}>{item.countryName}</Text>
+                      {item.isPremium && (
+                        <View style={styles.proBadge}>
+                          <Text style={styles.proText}>PRO</Text>
+                        </View>
+                      )}
+                      {item.isP2P && (
+                        <View style={[styles.proBadge, { backgroundColor: C.violetBg ?? '#EDE9FE' }]}>
+                          <Text style={[styles.proText, { color: C.violet }]}>P2P</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.cityName}>{item.city}</Text>
                   </View>
-                  <Text style={styles.cityName}>{item.city}</Text>
-                </View>
-                <View style={[styles.pingBadge, { backgroundColor: pingColor + '18' }]}>
-                  <Text style={[styles.pingText, { color: pingColor }]}>{item.ping}ms</Text>
-                </View>
-                {isConnected ? (
-                  <MaterialIcons name="check-circle" size={22} color={C.teal} />
-                ) : (
-                  <MaterialIcons name="chevron-right" size={20} color={C.txtLight3} />
-                )}
-              </Pressable>
-            );
-          }}
-        />
+                  <View style={[styles.pingBadge, { backgroundColor: pingColor + '18' }]}>
+                    <Text style={[styles.pingText, { color: pingColor }]}>{item.pingMs}ms</Text>
+                  </View>
+                  {isConnected ? (
+                    <MaterialIcons name="check-circle" size={22} color={C.teal} />
+                  ) : (
+                    <MaterialIcons name="chevron-right" size={20} color={C.txtLight3} />
+                  )}
+                </Pressable>
+              );
+            }}
+          />
+        )}
       </SafeAreaView>
     </View>
   );
@@ -185,9 +187,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.borderLight,
   },
-  tabBtnActive: { backgroundColor: C.tealBg, borderColor: C.tealBorder },
-  tabText:      { fontFamily: 'Oxanium_600SemiBold', fontSize: 12, color: C.txtLight2 },
+  tabBtnActive:  { backgroundColor: C.tealBg, borderColor: C.tealBorder },
+  tabText:       { fontFamily: 'Oxanium_600SemiBold', fontSize: 12, color: C.txtLight2 },
   tabTextActive: { color: C.teal },
+
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontFamily: 'Oxanium_400Regular', fontSize: 14, color: C.txtLight2 },
 
   list: { paddingHorizontal: 20, paddingBottom: 24, gap: 8 },
 
@@ -204,7 +209,7 @@ const styles = StyleSheet.create({
   serverCardActive: { borderColor: C.teal, backgroundColor: C.tealBg2 },
   flag:       { fontSize: 28 },
   serverInfo: { flex: 1 },
-  nameRow:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  nameRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   countryName: { fontFamily: 'Oxanium_600SemiBold', fontSize: 15, color: C.txtLight },
   cityName:   { fontFamily: 'Oxanium_400Regular', fontSize: 12, color: C.txtLight2, marginTop: 2 },
   proBadge: {
