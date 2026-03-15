@@ -1,4 +1,5 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { createHash } from 'crypto';
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -89,4 +90,51 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export function hashPassword(password: string): string {
+  return createHash('sha256')
+    .update(password + (process.env.PASSWORD_SALT ?? 'boltvpn-2026'))
+    .digest('hex');
+}
+
+export async function createEmailUser(data: {
+  name: string;
+  email: string;
+  password: string;
+  avatarColor?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const existing = await db.select().from(users)
+    .where(eq(users.email, data.email)).limit(1);
+  if (existing.length > 0) throw new Error('EMAIL_TAKEN');
+  const openId = 'email-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  await db.insert(users).values({
+    openId,
+    name: data.name,
+    email: data.email,
+    passwordHash: hashPassword(data.password),
+    loginMethod: 'email',
+    avatarColor: data.avatarColor ?? '#00C896',
+    lastSignedIn: new Date(),
+  });
+  const created = await db.select().from(users)
+    .where(eq(users.email, data.email)).limit(1);
+  return created[0]!;
+}
+
+export async function getUserByEmailAndPassword(email: string, password: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(users)
+    .where(and(eq(users.email, email), eq(users.passwordHash, hashPassword(password))))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(users)
+    .where(eq(users.id, id)).limit(1);
+  return result[0] ?? null;
+}

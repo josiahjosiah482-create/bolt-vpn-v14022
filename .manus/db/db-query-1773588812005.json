@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `users` ADD `subscriptionTier` enum('free','pro','max') NOT NULL DEFAULT 'free'; ALTER TABLE `users` ADD `avatarColor` varchar(16) DEFAULT '#00C896'; ALTER TABLE `users` ADD `passwordHash` varchar(255);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 48qUYk3xwDK66vF.root --database 4yeNYoedqMxvnGCySKeRhg --execute ALTER TABLE `users` ADD `subscriptionTier` enum('free','pro','max') NOT NULL DEFAULT 'free'; ALTER TABLE `users` ADD `avatarColor` varchar(16) DEFAULT '#00C896'; ALTER TABLE `users` ADD `passwordHash` varchar(255);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 3011
+}

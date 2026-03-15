@@ -232,6 +232,20 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<User> {
+    // Email/password token check (base64url encoded JSON with sub field)
+    const cookies = this.parseCookies(req.headers.cookie);
+    const rawCookie = cookies.get(COOKIE_NAME);
+    if (rawCookie) {
+      try {
+        const raw = Buffer.from(rawCookie, 'base64url').toString();
+        const parsed = JSON.parse(raw) as { sub?: string; iat?: number };
+        if (parsed.sub && !isNaN(parseInt(parsed.sub, 10))) {
+          const emailUser = await db.getUserById(parseInt(parsed.sub, 10));
+          if (emailUser) return emailUser;
+        }
+      } catch { /* not an email token — fall through to OAuth */ }
+    }
+
     // Regular authentication flow
     const authHeader = req.headers.authorization || req.headers.Authorization;
     let token: string | undefined;
@@ -239,8 +253,8 @@ class SDKServer {
       token = authHeader.slice("Bearer ".length).trim();
     }
 
-    const cookies = this.parseCookies(req.headers.cookie);
-    const sessionCookie = token || cookies.get(COOKIE_NAME);
+    const cookies2 = this.parseCookies(req.headers.cookie);
+    const sessionCookie = token || cookies2.get(COOKIE_NAME);
     const session = await this.verifySession(sessionCookie);
 
     if (!session) {

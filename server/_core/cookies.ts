@@ -44,6 +44,11 @@ function getParentDomain(hostname: string): string | undefined {
   return "." + parts.slice(-2).join(".");
 }
 
+export function createSessionToken(userId: number): string {
+  const payload = { sub: String(userId), iat: Math.floor(Date.now() / 1000) };
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
 export function getSessionCookieOptions(
   req: Request,
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {

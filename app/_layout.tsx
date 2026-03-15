@@ -1,4 +1,10 @@
 import "@/global.css";
+import {
+  useFonts,
+  Oxanium_400Regular,
+  Oxanium_600SemiBold,
+  Oxanium_700Bold,
+} from '@expo-google-fonts/oxanium';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -18,6 +24,9 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync();
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -27,6 +36,16 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Oxanium_400Regular,
+    Oxanium_600SemiBold,
+    Oxanium_700Bold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync();
+  }, [fontsLoaded]);
+
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
 
@@ -37,6 +56,8 @@ export default function RootLayout() {
   useEffect(() => {
     initManusRuntime();
   }, []);
+
+  if (!fontsLoaded) return null;
 
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
     setInsets(metrics.insets);
@@ -87,9 +108,30 @@ export default function RootLayout() {
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="onboarding" />
+            {/* Settings sub-screens */}
+            <Stack.Screen name="settings/kill-switch"  options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="settings/protocol"     options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="settings/split-tunnel" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="settings/dedicated-ip" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="settings/stats"        options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="settings/help"         options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            {/* Feature screens */}
+            <Stack.Screen name="threat-protection" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="no-log-policy"     options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="p2p"               options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="refer"             options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            {/* NEW combo feature screens */}
+            <Stack.Screen name="wifi-scanner"    options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="app-monitor"     options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="streaming"       options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="bandwidth-share" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="privacy-audit"   options={{ presentation: 'card', animation: 'slide_from_right' }} />
+            <Stack.Screen name="devices"         options={{ presentation: 'card', animation: 'slide_from_right' }} />
             <Stack.Screen name="oauth/callback" />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style="light" />
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>
